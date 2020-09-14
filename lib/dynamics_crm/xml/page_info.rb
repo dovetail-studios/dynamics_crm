@@ -11,22 +11,48 @@ module DynamicsCRM
       end
 
       # Using Entity vs entity causes the error: Value cannot be null.
-      def to_xml
+      def to_xml(options={})
         cookie = if paging_cookie.nil?
-          '<b:PagingCookie i:nil="true" />'
+          '<a:PagingCookie nil="true" />'
         else
-          %(<b:PagingCookie>#{CGI.escapeHTML(paging_cookie)}</b:PagingCookie>)
+          %(<a:PagingCookie>#{CGI.escapeHTML(paging_cookie)}</a:PagingCookie>)
         end
 
-        %(
-        <b:PageInfo>
-          <b:Count>#{count}</b:Count>
-          <b:PageNumber>#{page_number}</b:PageNumber>
-          #{cookie}
-          <b:ReturnTotalRecordCount>#{return_total_record_count}</b:ReturnTotalRecordCount>
-        </b:PageInfo>
-        )
+        if options[:exclude_root]
+          %(
+            <a:Count>#{count}</a:Count>
+            <a:PageNumber>#{page_number}</a:PageNumber>
+            #{cookie}
+            <a:ReturnTotalRecordCount>#{return_total_record_count}</a:ReturnTotalRecordCount>
+          )
+        else
+          %(
+          <PageInfo>
+            <Count>#{count}</Count>
+            <PageNumber>#{page_number}</PageNumber>
+            #{cookie}
+            <ReturnTotalRecordCount>#{return_total_record_count}</ReturnTotalRecordCount>
+          </PageInfo>
+          )
+        end
       end
+
+      def self.from_xml(xml_document)
+        page_info = PageInfo.new
+
+        if xml_document
+          xml_document.elements.each do |node|
+
+            attr_name = DynamicsCRM::StringUtil.underscore(node.name).to_sym
+            if entity.respond_to?(attr_name)
+              entity.send("#{attr_name}=", node.text ? node.text.strip : nil)
+            end
+          end
+        end
+
+        return entity
+      end
+
 
       def to_hash
         {
